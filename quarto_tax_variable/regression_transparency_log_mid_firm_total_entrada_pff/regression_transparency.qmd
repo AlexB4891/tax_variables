@@ -1,0 +1,1700 @@
+---
+title: "Regession analysis report"
+format: 
+  html:
+    number-sections: true
+    number-depth: 4
+editor: visual
+code-fold: false
+toc: true
+toc-depth: 3
+monofontoptions: 
+  - Scale=0.35
+execute: 
+  warning: false
+  message: false
+params:
+  var_dep: "tasa_ir"
+  var_lab: "income tax rate"
+  date: "20240304"
+  populations: "all,treat_a,treat_b,treat_c,cit_m22,cit_m0,main_group_0,main_group_1,main_group_50,minor_group_50,domestic_50"
+---
+
+```{r, echo=FALSE}
+
+if (!exists("results_envir")) {
+  results_envir <- new.env()
+  results_envir$counter <- 0  # Inicializar un contador en este environment
+}
+
+if (!exists("perfor_envir")) {
+  perfor_envir <- new.env()
+  perfor_envir$counter <- 0  # Inicializar un contador en este environment
+}
+
+```
+
+
+Libraries:
+
+```{r}
+library(tidyverse)
+library(fixest)
+library(broom)
+library(scales)
+library(here)
+
+source("global.R")
+
+populations <- str_split(params$populations, pattern = ",") %>% 
+  unlist()
+```
+
+```{r}
+#| echo: false
+model_df_0 <- read_tsv(here(str_c(
+    params$date,"/params/dep_var_",
+    params$var_dep, "_joint.txt"
+))) %>% 
+  filter(population %in% populations)
+
+model_df_0_p <- read_tsv(here(str_c(
+    params$date,"/performance/dep_var_",
+    params$var_dep, "_joint.txt"
+))) %>% 
+  filter(population %in% populations)
+
+
+```
+
+# Joint groups (T-Maj + T-Min vs C-Maj + C-Min)
+
+## Event Study design (unsaturated model)
+
+$$Y_{it} = \beta_0 + \beta_1 \times Treatment_{i} + \beta_2 \times Post_{t} + \sum_{k \neq 2014} \beta_k \times Time_{k} \times Treatment_{i} + \epsilon_{it}$$
+
+Where:
+
+-   $\{ k = 2012, \ldots, 2017 \}$
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Time_{i}$ are dummy variables that are 1 if the year is $k$, and 0 otherwise. The year 2014 is the reference year and therefore does not appear in the equation.
+-   $\epsilon_{it}$ is the error term.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model == "Event study"),
+               title_plot  = str_c("Event Study Design: ",params$var_lab),
+               subtitle_plot  = "Unsaturated model with firm clustered standard errors",
+               type = "es")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                 "Event study",
+                 "es",
+                 "joint")
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml_event_study <- glue::glue('{dependent} ~  anio_fiscal + treatment + i(anio_fiscal,treatment, ref = 2014)') %>%
+    formula(.)
+
+# Model estimation:
+es_model <- lm(data = rtable,
+               formula = fml_event_study)
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = es_model,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model_fe) 
+
+```
+:::
+
+## Event Study design (with fixed effects)
+
+$$Y_{it} = \beta_0 + \beta_1 \times Treatment_{i} + \beta_2 \times Post_{t} + \sum_{k \neq 2014} \beta_k \times Time_{k} \times Treatment_{i} + \alpha_i + \gamma_t + \epsilon_{it}$$
+
+Where:
+
+-   $\{ k = 2012, \ldots, 2017 \}$
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Time_{i}$ are dummy variables that are 1 if the year is $k$, and 0 otherwise. The year 2014 is the reference year and therefore does not appear in the equation.
+-   $alpha_i$ are the fixed effects at firm level
+-   $gamma_t$ are the fixed effects at time
+-   $\epsilon_{it}$ is the error term.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model ==  "Event study with fixed effects"),
+               title_plot  = str_c("Event Study Design: ",params$var_lab),
+               subtitle_plot  = "Fixed effects model with firm clustered standard errors",
+               type = "es")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                 "Event study with fixed effects",
+                 "es",
+                 "joint")
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml_event_study <- glue::glue('{dependent} ~  anio_fiscal + treatment + i(anio_fiscal,treatment, ref = 2014)') %>%
+    formula(.)
+
+# Model estimation:
+es_model_fe <- plm(data = rtable,
+                    formula = fml_event_study,
+                    index = c("firm_id","anio_fiscal"),
+                    model = "within")
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = es_model_fe,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model_fe) 
+
+```
+:::
+
+## Event Study design assets weighted (unsaturated model)
+
+$$Y_{it} = \beta_0 + \beta_1 \times Treatment_{i} + \beta_2 \times Post_{t} + \sum_{k \neq 2014} \beta_k \times Time_{k} \times Treatment_{i} + \epsilon_{it}$$
+
+$$\text{Note: The model is weighted by: Total assets 2014.}$$
+
+Where:
+
+-   $\{ k = 2012, \ldots, 2017 \}$
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Time_{i}$ are dummy variables that are 1 if the year is $k$, and 0 otherwise. The year 2014 is the reference year and therefore does not appear in the equation.
+-   $\epsilon_{it}$ is the error term.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model ==  "Event study assets weighted"),
+               title_plot  = str_c("Event Study Design assets weighted: ",params$var_lab),
+               subtitle_plot  = "Unsaturated model with firm clustered standard errors",
+               type = "es")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                 "Event study assets weighted",
+                 "es",
+                 "joint")
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml_event_study <- glue::glue('{dependent} ~  anio_fiscal + treatment + i(anio_fiscal,treatment, ref = 2014)') %>%
+    formula(.)
+
+# Model estimation:
+es_model_aw <- feols(data = rtable,
+                     fml = fml_event_study,
+                  weights = ~assets_2014,
+                  cluster = ~firm_id)
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = es_model_aw,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model_fe) 
+
+```
+:::
+
+## Event Study design assets weighted (with fixed effects)
+
+$$Y_{it} = \beta_0 + \beta_1 \times Treatment_{i} + \beta_2 \times Post_{t} + \sum_{k \neq 2014} \beta_k \times Time_{k} \times Treatment_{i} + \alpha_i + \gamma_t + \epsilon_{it}$$
+
+$$\text{Note: The model is weighted by: Total assets 2014.}$$
+
+Where:
+
+-   $\{ k = 2012, \ldots, 2017 \}$
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Time_{i}$ are dummy variables that are 1 if the year is $k$, and 0 otherwise. The year 2014 is the reference year and therefore does not appear in the equation.
+-   $alpha_i$ are the fixed effects at firm level
+-   $gamma_t$ are the fixed effects at time
+-   $\epsilon_{it}$ is the error term.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model == "Event study assets weighted with fixed effects"),
+               title_plot  = str_c("Event Study Design assets weighted: ",params$var_lab),
+               subtitle_plot  = "Fixed effects model with firm clustered standard errors",
+               type = "es")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                 "Event study assets weighted with fixed effects",
+                 "es",
+                 "joint")
+
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+  fml_event_study_fe <- glue::glue('{dependent} ~  i(anio_fiscal,treatment, ref = 2014) | firm_id + anio_fiscal') %>%
+    formula(.)
+
+# Model estimation:
+  
+es_model_aw_fe <- feols(data = rtable,
+                        fml = fml_event_study_fe,
+                        weights = ~assets_2014,
+                        cluster = ~firm_id)
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = es_model_aw_fe,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model_fe) 
+
+```
+:::
+
+## Diff-in-diff design (unsaturated model)
+
+$$Y_{it} = \beta_0 \times Treatment_{i} + \beta_1 \times Post_{t} + \beta_2 \times Treatment_{i} \times Post_{t} + \epsilon_{it}$$
+
+Where:
+
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable for unit $i$ at time $t$.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Post_{t}$ is a dummy variable that is 1 if time $t$ is after the implementation of the treatment, and 0 otherwise.
+-   $Treatment_{i} \times Post_{t}$ is the interaction between the treatment and the post period, which captures the treatment effect in the difference-in-differences.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model == "Linear model"),
+               title_plot  = str_c("Diff-in-Diff Design: ",params$var_lab),
+               subtitle_plot  = "Saturated model with firm clustered standard errors",
+               type = "lm")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                "Linear model",
+                 "lm",
+                 "joint")
+
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml <- glue::glue('dependent_variable ~ treatment + post + treatment:post')%>% 
+  formula(.)
+
+# Model estimation:
+did_model <- lm(data = rtable,
+                  formula = fml)
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = did_model,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model) 
+
+```
+:::
+
+## Diff-in-diff design (with fixed effects)
+
+$$Y_{it} = \beta_0 + \beta_1 \times Treatment_{i} + \beta_2 \times Post_{t} + \beta_3 \times Treatment_{i} \times Post_{t} + \alpha_i + \gamma_t + \epsilon_{it}$$
+
+Where:
+
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable for unit $i$ at time $t$.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Post_{t}$ is a dummy variable that is 1 if time $t$ is after the implementation of the treatment, and 0 otherwise.
+-   $Treatment_{i} \times Post_{t}$ is the interaction between the treatment and the post period, which captures the treatment effect in the difference-in-differences.
+-   $\alpha_i$ is the fixed effect for unit $i$, which captures time-invariant characteristics of each unit.
+-   $\gamma_t$ is the fixed effect for time $t$, which captures any time shock that affects all units in the same way.
+-   $\epsilon_{it}$ is the error term.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model == "Linear model with fixed effect"),
+               title_plot  = str_c("Diff-in-Diff Design: ",params$var_lab),
+               subtitle_plot  = "Fixed effects model with firm clustered standard errors",
+               type = "lm")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                "Linear model with fixed effect",
+                 "lm",
+                 "joint")
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml <- glue::glue('dependent_variable ~ treatment + post + treatment:post') %>% 
+  formula(.)
+
+# Model estimation:
+did_model_fe <- plm(data = rtable,
+                    formula = fml,
+                    index = c("firm_id","anio_fiscal"),
+                    model = "within")
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = did_model_fe,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model_fe) 
+
+```
+:::
+
+## Diff-in-diff design assets weighted (unsaturated model)
+
+$$Y_{it} = \beta_0 \times Treatment_{i} + \beta_1 \times Post_{t} + \beta_2 \times Treatment_{i} \times Post_{t} + \epsilon_{it}$$ $$\text{Note: The model is weighted by: Total assets 2014.}$$
+
+Where:
+
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable for unit $i$ at time $t$.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Post_{t}$ is a dummy variable that is 1 if time $t$ is after the implementation of the treatment, and 0 otherwise.
+-   $Treatment_{i} \times Post_{t}$ is the interaction between the treatment and the post period, which captures the treatment effect in the difference-in-differences.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model == "Linear model assets weighted"),
+               title_plot  = str_c("Diff-in-Diff Design (Assets weighted): ",params$var_lab),
+               subtitle_plot  = "Saturated model with firm clustered standard errors",
+               type = "lm")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                "Linear model assets weighted",
+                 "lm",
+                 "joint")
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml <- glue::glue('dependent_variable ~ treatment + post + treatment:post')%>% 
+  formula(.)
+
+# Model estimation:
+did_model_aw <- lm(data = rtable,
+                   formula = fml,
+                   weights = assets_2014)
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = did_model,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model) 
+
+```
+:::
+
+## Diff-in-diff design assets weighted (with fixed effects)
+
+$$Y_{it} = \beta_0 + \beta_1 \times Treatment_{i} + \beta_2 \times Post_{t} + \beta_3 \times Treatment_{i} \times Post_{t} + \alpha_i + \gamma_t + \epsilon_{it}$$
+
+$$\text{Note: The model is weighted by: Total assets 2014.}$$
+
+Where:
+
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable for unit $i$ at time $t$.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Post_{t}$ is a dummy variable that is 1 if time $t$ is after the implementation of the treatment, and 0 otherwise.
+-   $Treatment_{i} \times Post_{t}$ is the interaction between the treatment and the post period, which captures the treatment effect in the difference-in-differences.
+-   $\alpha_i$ is the fixed effect for unit $i$, which captures time-invariant characteristics of each unit.
+-   $\gamma_t$ is the fixed effect for time $t$, which captures any time shock that affects all units in the same way.
+-   $\epsilon_{it}$ is the error term.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model == "Linear model assets weighted with fixed effect"),
+               title_plot  = str_c("Diff-in-Diff Design (Assets weighted): ",params$var_lab),
+               subtitle_plot  = "Fixed effects model with firm clustered standard errors",
+               type = "lm")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                "Linear model assets weighted with fixed effect",
+                 "lm",
+                 "joint")
+
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml <- glue::glue('dependent_variable ~ treatment + post + treatment:post') %>% 
+  formula(.)
+
+# Model estimation:
+did_model_fe_aw <- feols(data = rtable,
+                         fml = fml_fe,
+                         weights = ~assets_2014,
+                         cluster = ~firm_id)
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = did_model_fe,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model_fe) 
+
+```
+:::
+
+# Major groups (T-Maj vs C-Maj)
+
+```{r}
+#| echo: false
+
+model_df_0 <- read_tsv(here(str_c(
+    params$date,"/params/dep_var_",
+    params$var_dep, "_majors.txt"
+)))  %>% 
+  filter(population %in% populations)
+
+model_df_0_p <- read_tsv(here(str_c(
+    params$date,"/performance/dep_var_",
+    params$var_dep, "_majors.txt"
+)))  %>% 
+  filter(population %in% populations)
+
+
+```
+
+## Event Study design (unsaturated model)
+
+$$Y_{it} = \beta_0 + \beta_1 \times Treatment_{i} + \beta_2 \times Post_{t} + \sum_{k \neq 2014} \beta_k \times Time_{k} \times Treatment_{i} + \epsilon_{it}$$
+
+Where:
+
+-   $\{ k = 2012, \ldots, 2017 \}$
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Time_{i}$ are dummy variables that are 1 if the year is $k$, and 0 otherwise. The year 2014 is the reference year and therefore does not appear in the equation.
+-   $\epsilon_{it}$ is the error term.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model == "Event study"),
+               title_plot  = str_c("Event Study Design: ",params$var_lab),
+               subtitle_plot  = "Unsaturated model with firm clustered standard errors",
+               type = "es")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                 "Event study",
+                 "es",
+                 "majors")
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml_event_study <- glue::glue('{dependent} ~  anio_fiscal + treatment + i(anio_fiscal,treatment, ref = 2014)') %>%
+    formula(.)
+
+# Model estimation:
+es_model <- lm(data = rtable,
+               formula = fml_event_study)
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = es_model,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model_fe) 
+
+```
+:::
+
+## Event Study design (with fixed effects)
+
+$$Y_{it} = \beta_0 + \beta_1 \times Treatment_{i} + \beta_2 \times Post_{t} + \sum_{k \neq 2014} \beta_k \times Time_{k} \times Treatment_{i} + \alpha_i + \gamma_t + \epsilon_{it}$$
+
+Where:
+
+-   $\{ k = 2012, \ldots, 2017 \}$
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Time_{i}$ are dummy variables that are 1 if the year is $k$, and 0 otherwise. The year 2014 is the reference year and therefore does not appear in the equation.
+-   $alpha_i$ are the fixed effects at firm level
+-   $gamma_t$ are the fixed effects at time
+-   $\epsilon_{it}$ is the error term.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model ==  "Event study with fixed effects"),
+               title_plot  = str_c("Event Study Design: ",params$var_lab),
+               subtitle_plot  = "Fixed effects model with firm clustered standard errors",
+               type = "es")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                 "Event study with fixed effects",
+                 "es",
+                 "majors")
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml_event_study <- glue::glue('{dependent} ~  anio_fiscal + treatment + i(anio_fiscal,treatment, ref = 2014)') %>%
+    formula(.)
+
+# Model estimation:
+es_model_fe <- plm(data = rtable,
+                    formula = fml_event_study,
+                    index = c("firm_id","anio_fiscal"),
+                    model = "within")
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = es_model_fe,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model_fe) 
+
+```
+:::
+
+## Event Study design assets weighted (unsaturated model)
+
+$$Y_{it} = \beta_0 + \beta_1 \times Treatment_{i} + \beta_2 \times Post_{t} + \sum_{k \neq 2014} \beta_k \times Time_{k} \times Treatment_{i} + \epsilon_{it}$$
+
+$$\text{Note: The model is weighted by: Total assets 2014.}$$
+
+Where:
+
+-   $\{ k = 2012, \ldots, 2017 \}$
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Time_{i}$ are dummy variables that are 1 if the year is $k$, and 0 otherwise. The year 2014 is the reference year and therefore does not appear in the equation.
+-   $\epsilon_{it}$ is the error term.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model ==  "Event study assets weighted"),
+               title_plot  = str_c("Event Study Design assets weighted: ",params$var_lab),
+               subtitle_plot  = "Unsaturated model with firm clustered standard errors",
+               type = "es")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                 "Event study assets weighted",
+                 "es",
+                 "majors")
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml_event_study <- glue::glue('{dependent} ~  anio_fiscal + treatment + i(anio_fiscal,treatment, ref = 2014)') %>%
+    formula(.)
+
+# Model estimation:
+es_model_aw <- feols(data = rtable,
+                     fml = fml_event_study,
+                  weights = ~assets_2014,
+                  cluster = ~firm_id)
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = es_model_aw,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model_fe) 
+
+```
+:::
+
+## Event Study design assets weighted (with fixed effects)
+
+$$Y_{it} = \beta_0 + \beta_1 \times Treatment_{i} + \beta_2 \times Post_{t} + \sum_{k \neq 2014} \beta_k \times Time_{k} \times Treatment_{i} + \alpha_i + \gamma_t + \epsilon_{it}$$
+
+$$\text{Note: The model is weighted by: Total assets 2014.}$$
+
+Where:
+
+-   $\{ k = 2012, \ldots, 2017 \}$
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Time_{i}$ are dummy variables that are 1 if the year is $k$, and 0 otherwise. The year 2014 is the reference year and therefore does not appear in the equation.
+-   $alpha_i$ are the fixed effects at firm level
+-   $gamma_t$ are the fixed effects at time
+-   $\epsilon_{it}$ is the error term.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model == "Event study assets weighted with fixed effects"),
+               title_plot  = str_c("Event Study Design assets weighted: ",params$var_lab),
+               subtitle_plot  = "Fixed effects model with firm clustered standard errors",
+               type = "es")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                 "Event study assets weighted with fixed effects",
+                 "es",
+                 "majors")
+
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+  fml_event_study_fe <- glue::glue('{dependent} ~  i(anio_fiscal,treatment, ref = 2014) | firm_id + anio_fiscal') %>%
+    formula(.)
+
+# Model estimation:
+  
+es_model_aw_fe <- feols(data = rtable,
+                        fml = fml_event_study_fe,
+                        weights = ~assets_2014,
+                        cluster = ~firm_id)
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = es_model_aw_fe,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model_fe) 
+
+```
+:::
+
+## Diff-in-diff design (unsaturated model)
+
+$$Y_{it} = \beta_0 \times Treatment_{i} + \beta_1 \times Post_{t} + \beta_2 \times Treatment_{i} \times Post_{t} + \epsilon_{it}$$
+
+Where:
+
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable for unit $i$ at time $t$.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Post_{t}$ is a dummy variable that is 1 if time $t$ is after the implementation of the treatment, and 0 otherwise.
+-   $Treatment_{i} \times Post_{t}$ is the interaction between the treatment and the post period, which captures the treatment effect in the difference-in-differences.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model == "Linear model"),
+               title_plot  = str_c("Diff-in-Diff Design: ",params$var_lab),
+               subtitle_plot  = "Saturated model with firm clustered standard errors",
+               type = "lm")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                "Linear model",
+                 "lm",
+                 "majors")
+
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml <- glue::glue('dependent_variable ~ treatment + post + treatment:post')%>% 
+  formula(.)
+
+# Model estimation:
+did_model <- lm(data = rtable,
+                  formula = fml)
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = did_model,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model) 
+
+```
+:::
+
+## Diff-in-diff design (with fixed effects)
+
+$$Y_{it} = \beta_0 + \beta_1 \times Treatment_{i} + \beta_2 \times Post_{t} + \beta_3 \times Treatment_{i} \times Post_{t} + \alpha_i + \gamma_t + \epsilon_{it}$$
+
+Where:
+
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable for unit $i$ at time $t$.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Post_{t}$ is a dummy variable that is 1 if time $t$ is after the implementation of the treatment, and 0 otherwise.
+-   $Treatment_{i} \times Post_{t}$ is the interaction between the treatment and the post period, which captures the treatment effect in the difference-in-differences.
+-   $\alpha_i$ is the fixed effect for unit $i$, which captures time-invariant characteristics of each unit.
+-   $\gamma_t$ is the fixed effect for time $t$, which captures any time shock that affects all units in the same way.
+-   $\epsilon_{it}$ is the error term.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model == "Linear model with fixed effect"),
+               title_plot  = str_c("Diff-in-Diff Design: ",params$var_lab),
+               subtitle_plot  = "Fixed effects model with firm clustered standard errors",
+               type = "lm")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                "Linear model with fixed effect",
+                 "lm",
+                 "majors")
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml <- glue::glue('dependent_variable ~ treatment + post + treatment:post') %>% 
+  formula(.)
+
+# Model estimation:
+did_model_fe <- plm(data = rtable,
+                    formula = fml,
+                    index = c("firm_id","anio_fiscal"),
+                    model = "within")
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = did_model_fe,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model_fe) 
+
+```
+:::
+
+## Diff-in-diff design assets weighted (unsaturated model)
+
+$$Y_{it} = \beta_0 \times Treatment_{i} + \beta_1 \times Post_{t} + \beta_2 \times Treatment_{i} \times Post_{t} + \epsilon_{it}$$ $$\text{Note: The model is weighted by: Total assets 2014.}$$
+
+Where:
+
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable for unit $i$ at time $t$.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Post_{t}$ is a dummy variable that is 1 if time $t$ is after the implementation of the treatment, and 0 otherwise.
+-   $Treatment_{i} \times Post_{t}$ is the interaction between the treatment and the post period, which captures the treatment effect in the difference-in-differences.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model == "Linear model assets weighted"),
+               title_plot  = str_c("Diff-in-Diff Design (Assets weighted): ",params$var_lab),
+               subtitle_plot  = "Saturated model with firm clustered standard errors",
+               type = "lm")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                "Linear model assets weighted",
+                 "lm",
+                 "majors")
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml <- glue::glue('dependent_variable ~ treatment + post + treatment:post')%>% 
+  formula(.)
+
+# Model estimation:
+did_model_aw <- lm(data = rtable,
+                   formula = fml,
+                   weights = assets_2014)
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = did_model,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model) 
+
+```
+:::
+
+## Diff-in-diff design assets weighted (with fixed effects)
+
+$$Y_{it} = \beta_0 + \beta_1 \times Treatment_{i} + \beta_2 \times Post_{t} + \beta_3 \times Treatment_{i} \times Post_{t} + \alpha_i + \gamma_t + \epsilon_{it}$$
+
+$$\text{Note: The model is weighted by: Total assets 2014.}$$
+
+Where:
+
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable for unit $i$ at time $t$.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Post_{t}$ is a dummy variable that is 1 if time $t$ is after the implementation of the treatment, and 0 otherwise.
+-   $Treatment_{i} \times Post_{t}$ is the interaction between the treatment and the post period, which captures the treatment effect in the difference-in-differences.
+-   $\alpha_i$ is the fixed effect for unit $i$, which captures time-invariant characteristics of each unit.
+-   $\gamma_t$ is the fixed effect for time $t$, which captures any time shock that affects all units in the same way.
+-   $\epsilon_{it}$ is the error term.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model == "Linear model assets weighted with fixed effect"),
+               title_plot  = str_c("Diff-in-Diff Design (Assets weighted): ",params$var_lab),
+               subtitle_plot  = "Fixed effects model with firm clustered standard errors",
+               type = "lm")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                "Linear model assets weighted with fixed effect",
+                 "lm",
+                 "majors")
+
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml <- glue::glue('dependent_variable ~ treatment + post + treatment:post') %>% 
+  formula(.)
+
+# Model estimation:
+did_model_fe_aw <- feols(data = rtable,
+                         fml = fml_fe,
+                         weights = ~assets_2014,
+                         cluster = ~firm_id)
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = did_model_fe,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model_fe) 
+
+```
+:::
+
+# Minor groups (T-Min vs C-Min)
+
+```{r}
+#| echo: false
+
+model_df_0 <- read_tsv(here(str_c(
+    params$date,"/params/dep_var_",
+    params$var_dep, "_minors.txt"
+)))  %>% 
+  filter(population %in% populations)
+
+model_df_0_p <- read_tsv(here(str_c(
+    params$date,"/performance/dep_var_",
+    params$var_dep, "_minors.txt"
+)))  %>% 
+  filter(population %in% populations)
+
+
+```
+
+## Event Study design (unsaturated model)
+
+$$Y_{it} = \beta_0 + \beta_1 \times Treatment_{i} + \beta_2 \times Post_{t} + \sum_{k \neq 2014} \beta_k \times Time_{k} \times Treatment_{i} + \epsilon_{it}$$
+
+Where:
+
+-   $\{ k = 2012, \ldots, 2017 \}$
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Time_{i}$ are dummy variables that are 1 if the year is $k$, and 0 otherwise. The year 2014 is the reference year and therefore does not appear in the equation.
+-   $\epsilon_{it}$ is the error term.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model == "Event study"),
+               title_plot  = str_c("Event Study Design: ",params$var_lab),
+               subtitle_plot  = "Unsaturated model with firm clustered standard errors",
+               type = "es")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                 "Event study",
+                 "es",
+                 "minors")
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml_event_study <- glue::glue('{dependent} ~  anio_fiscal + treatment + i(anio_fiscal,treatment, ref = 2014)') %>%
+    formula(.)
+
+# Model estimation:
+es_model <- lm(data = rtable,
+               formula = fml_event_study)
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = es_model,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model_fe) 
+
+```
+:::
+
+## Event Study design (with fixed effects)
+
+$$Y_{it} = \beta_0 + \beta_1 \times Treatment_{i} + \beta_2 \times Post_{t} + \sum_{k \neq 2014} \beta_k \times Time_{k} \times Treatment_{i} + \alpha_i + \gamma_t + \epsilon_{it}$$
+
+Where:
+
+-   $\{ k = 2012, \ldots, 2017 \}$
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Time_{i}$ are dummy variables that are 1 if the year is $k$, and 0 otherwise. The year 2014 is the reference year and therefore does not appear in the equation.
+-   $alpha_i$ are the fixed effects at firm level
+-   $gamma_t$ are the fixed effects at time
+-   $\epsilon_{it}$ is the error term.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model ==  "Event study with fixed effects"),
+               title_plot  = str_c("Event Study Design: ",params$var_lab),
+               subtitle_plot  = "Fixed effects model with firm clustered standard errors",
+               type = "es")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                 "Event study with fixed effects",
+                 "es",
+                 "minors")
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml_event_study <- glue::glue('{dependent} ~  anio_fiscal + treatment + i(anio_fiscal,treatment, ref = 2014)') %>%
+    formula(.)
+
+# Model estimation:
+es_model_fe <- plm(data = rtable,
+                    formula = fml_event_study,
+                    index = c("firm_id","anio_fiscal"),
+                    model = "within")
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = es_model_fe,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model_fe) 
+
+```
+:::
+
+## Event Study design assets weighted (unsaturated model)
+
+$$Y_{it} = \beta_0 + \beta_1 \times Treatment_{i} + \beta_2 \times Post_{t} + \sum_{k \neq 2014} \beta_k \times Time_{k} \times Treatment_{i} + \epsilon_{it}$$
+
+$$\text{Note: The model is weighted by: Total assets 2014.}$$
+
+Where:
+
+-   $\{ k = 2012, \ldots, 2017 \}$
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Time_{i}$ are dummy variables that are 1 if the year is $k$, and 0 otherwise. The year 2014 is the reference year and therefore does not appear in the equation.
+-   $\epsilon_{it}$ is the error term.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model ==  "Event study assets weighted"),
+               title_plot  = str_c("Event Study Design assets weighted: ",params$var_lab),
+               subtitle_plot  = "Unsaturated model with firm clustered standard errors",
+               type = "es")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                 "Event study assets weighted",
+                 "es",
+                 "minors")
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml_event_study <- glue::glue('{dependent} ~  anio_fiscal + treatment + i(anio_fiscal,treatment, ref = 2014)') %>%
+    formula(.)
+
+# Model estimation:
+es_model_aw <- feols(data = rtable,
+                     fml = fml_event_study,
+                  weights = ~assets_2014,
+                  cluster = ~firm_id)
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = es_model_aw,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model_fe) 
+
+```
+:::
+
+## Event Study design assets weighted (with fixed effects)
+
+$$Y_{it} = \beta_0 + \beta_1 \times Treatment_{i} + \beta_2 \times Post_{t} + \sum_{k \neq 2014} \beta_k \times Time_{k} \times Treatment_{i} + \alpha_i + \gamma_t + \epsilon_{it}$$
+
+$$\text{Note: The model is weighted by: Total assets 2014.}$$
+
+Where:
+
+-   $\{ k = 2012, \ldots, 2017 \}$
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Time_{i}$ are dummy variables that are 1 if the year is $k$, and 0 otherwise. The year 2014 is the reference year and therefore does not appear in the equation.
+-   $alpha_i$ are the fixed effects at firm level
+-   $gamma_t$ are the fixed effects at time
+-   $\epsilon_{it}$ is the error term.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model == "Event study assets weighted with fixed effects"),
+               title_plot  = str_c("Event Study Design assets weighted: ",params$var_lab),
+               subtitle_plot  = "Fixed effects model with firm clustered standard errors",
+               type = "es")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                 "Event study assets weighted with fixed effects",
+                 "es",
+                 "minors")
+
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+  fml_event_study_fe <- glue::glue('{dependent} ~  i(anio_fiscal,treatment, ref = 2014) | firm_id + anio_fiscal') %>%
+    formula(.)
+
+# Model estimation:
+  
+es_model_aw_fe <- feols(data = rtable,
+                        fml = fml_event_study_fe,
+                        weights = ~assets_2014,
+                        cluster = ~firm_id)
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = es_model_aw_fe,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model_fe) 
+
+```
+:::
+
+## Diff-in-diff design (unsaturated model)
+
+$$Y_{it} = \beta_0 \times Treatment_{i} + \beta_1 \times Post_{t} + \beta_2 \times Treatment_{i} \times Post_{t} + \epsilon_{it}$$
+
+Where:
+
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable for unit $i$ at time $t$.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Post_{t}$ is a dummy variable that is 1 if time $t$ is after the implementation of the treatment, and 0 otherwise.
+-   $Treatment_{i} \times Post_{t}$ is the interaction between the treatment and the post period, which captures the treatment effect in the difference-in-differences.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model == "Linear model"),
+               title_plot  = str_c("Diff-in-Diff Design: ",params$var_lab),
+               subtitle_plot  = "Saturated model with firm clustered standard errors",
+               type = "lm")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                "Linear model",
+                 "lm",
+                 "minors")
+
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml <- glue::glue('dependent_variable ~ treatment + post + treatment:post')%>% 
+  formula(.)
+
+# Model estimation:
+did_model <- lm(data = rtable,
+                  formula = fml)
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = did_model,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model) 
+
+```
+:::
+
+## Diff-in-diff design (with fixed effects)
+
+$$Y_{it} = \beta_0 + \beta_1 \times Treatment_{i} + \beta_2 \times Post_{t} + \beta_3 \times Treatment_{i} \times Post_{t} + \alpha_i + \gamma_t + \epsilon_{it}$$
+
+Where:
+
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable for unit $i$ at time $t$.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Post_{t}$ is a dummy variable that is 1 if time $t$ is after the implementation of the treatment, and 0 otherwise.
+-   $Treatment_{i} \times Post_{t}$ is the interaction between the treatment and the post period, which captures the treatment effect in the difference-in-differences.
+-   $\alpha_i$ is the fixed effect for unit $i$, which captures time-invariant characteristics of each unit.
+-   $\gamma_t$ is the fixed effect for time $t$, which captures any time shock that affects all units in the same way.
+-   $\epsilon_{it}$ is the error term.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model == "Linear model with fixed effect"),
+               title_plot  = str_c("Diff-in-Diff Design: ",params$var_lab),
+               subtitle_plot  = "Fixed effects model with firm clustered standard errors",
+               type = "lm")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                "Linear model with fixed effect",
+                 "lm",
+                 "minors")
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml <- glue::glue('dependent_variable ~ treatment + post + treatment:post') %>% 
+  formula(.)
+
+# Model estimation:
+did_model_fe <- plm(data = rtable,
+                    formula = fml,
+                    index = c("firm_id","anio_fiscal"),
+                    model = "within")
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = did_model_fe,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model_fe) 
+
+```
+:::
+
+## Diff-in-diff design assets weighted (unsaturated model)
+
+$$Y_{it} = \beta_0 \times Treatment_{i} + \beta_1 \times Post_{t} + \beta_2 \times Treatment_{i} \times Post_{t} + \epsilon_{it}$$ $$\text{Note: The model is weighted by: Total assets 2014.}$$
+
+Where:
+
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable for unit $i$ at time $t$.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Post_{t}$ is a dummy variable that is 1 if time $t$ is after the implementation of the treatment, and 0 otherwise.
+-   $Treatment_{i} \times Post_{t}$ is the interaction between the treatment and the post period, which captures the treatment effect in the difference-in-differences.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model == "Linear model assets weighted"),
+               title_plot  = str_c("Diff-in-Diff Design (Assets weighted): ",params$var_lab),
+               subtitle_plot  = "Saturated model with firm clustered standard errors",
+               type = "lm")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                "Linear model assets weighted",
+                 "lm",
+                 "minors")
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml <- glue::glue('dependent_variable ~ treatment + post + treatment:post')%>% 
+  formula(.)
+
+# Model estimation:
+did_model_aw <- lm(data = rtable,
+                   formula = fml,
+                   weights = assets_2014)
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = did_model,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model) 
+
+```
+:::
+
+## Diff-in-diff design assets weighted (with fixed effects)
+
+$$Y_{it} = \beta_0 + \beta_1 \times Treatment_{i} + \beta_2 \times Post_{t} + \beta_3 \times Treatment_{i} \times Post_{t} + \alpha_i + \gamma_t + \epsilon_{it}$$
+
+$$\text{Note: The model is weighted by: Total assets 2014.}$$
+
+Where:
+
+-   $Y_{it}$ is `r params$var_lab`, the dependent variable for unit $i$ at time $t$.
+-   $Treatment_{i}$ is a dummy variable that is 1 if unit $i$ receives the treatment at time $t$, and 0 otherwise.
+-   $Post_{t}$ is a dummy variable that is 1 if time $t$ is after the implementation of the treatment, and 0 otherwise.
+-   $Treatment_{i} \times Post_{t}$ is the interaction between the treatment and the post period, which captures the treatment effect in the difference-in-differences.
+-   $\alpha_i$ is the fixed effect for unit $i$, which captures time-invariant characteristics of each unit.
+-   $\gamma_t$ is the fixed effect for time $t$, which captures any time shock that affects all units in the same way.
+-   $\epsilon_{it}$ is the error term.
+
+**Dependent variable:** `r params$var_lab`
+
+::: panel-tabset
+## Plot
+
+```{r, echo=FALSE}
+coef_plot_plus(model_df_0 %>% filter(model == "Linear model assets weighted with fixed effect"),
+               title_plot  = str_c("Diff-in-Diff Design (Assets weighted): ",params$var_lab),
+               subtitle_plot  = "Fixed effects model with firm clustered standard errors",
+               type = "lm")
+```
+
+## Regression table
+
+```{r, echo=FALSE}
+
+
+make_multi_model(model_df_0,
+                 model_df_0_p,
+                "Linear model assets weighted with fixed effect",
+                 "lm",
+                 "minors")
+
+```
+
+## R Code
+
+```{r, eval=FALSE}
+
+# With this code we construct our formula as a string to use in the model function.
+# Check above to see the label of the dependent variable.
+
+fml <- glue::glue('dependent_variable ~ treatment + post + treatment:post') %>% 
+  formula(.)
+
+# Model estimation:
+did_model_fe_aw <- feols(data = rtable,
+                         fml = fml_fe,
+                         weights = ~assets_2014,
+                         cluster = ~firm_id)
+
+# Wald test using clustered matrix of variance/covariance:
+vcov_cl <- vcovCL(x = did_model_fe,
+                  cluster = rtable$firm_id)
+
+# Adjusted standard errors:
+model_corrected <- coeftest(vcov. = vcov_cl,
+                            x = did_model_fe) 
+
+```
+:::
+
+
+```{r, echo=FALSE}
+
+rm(counter,envir = results_envir)
+rm(counter,envir = perfor_envir)
+
+results_list <- as.list(results_envir)
+
+
+perfor_list <- as.list(perfor_envir)
+
+perfor_list <- perfor_list %>% 
+  map(~.x %>% select(-statistic, -p.value))
+
+
+
+names(perfor_list) <- str_replace(names(perfor_list),"perfor","result")
+
+
+final_table <- list(perfor_list,
+     results_list) %>% 
+  transpose() %>% 
+  map(reduce,left_join) %>% 
+  map(mutate,term = as.character(term)) %>% 
+  reduce(bind_rows) %>% 
+  mutate(dependent_variable = params$var_dep,
+         label = params$var_lab) 
+
+final_table <- final_table %>% 
+  mutate(design = if_else(str_detect(model, "Event study"), 
+                          "event_study",
+                          "did"),
+         weight_spec = if_else(str_detect(model, "assets"), 
+                          "log_assets_2014",
+                          "unweighted"),
+         fe_spec = if_else(str_detect(model, "fixed"), 
+                          "twfe",
+                          "noabsorb")) %>% 
+  select(dependent_variable,
+         label,
+         design,
+         treatment_spec,
+         sample_spec,
+         weight_spec,
+         fe_spec,
+         year = term,
+         beta_year = estimate,
+         se_beta = std.error, 
+         p_value = p.value,
+         r_sqaured = r.squared,
+         logLik = logLik,
+         observation = nobs)
+
+write_rds(final_table,"temp.rds")
+
+
+
+```
+

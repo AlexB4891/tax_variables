@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Ecuador transpararency regressions (Income tax variables) </title>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
+        <style>
+            body {
+                padding-top: 0.5cm;
+                padding-left: 1cm;
+                padding-right: 1cm;
+                background-color: #edf3f7; /* Azul blanquecino */
+            }
+            h1 {
+                text-align: center; /* Centrar el título */
+                margin-top: 0; /* Eliminar el margen superior */
+            }
+            #selectInput {
+                width: 80%; /* Modificar el ancho del select input */
+                display: block;
+                margin: 0 auto 20px auto; /* Agregar margen inferior */
+            }
+            #contenido {
+                height: calc(100vh - 550px); /* Adjust 100px to your needs */
+                border: none; /* Quitar el borde del iframe */
+            }
+            p {
+                width: 80%; /* Alinear con el inicio del select input */
+                margin: 0 auto;
+            }
+            iframe {
+                width: 100%;
+                height: 100%;
+                border: none; /* Quitar el borde del iframe */
+            }
+        </style>
+    </head>
+<body>
+    <h2>Ecuador transpararency regressions (Samples defined by Income tax Rate values)</h1>
+    <p>Select a dependent variable to change the report content:</p>
+    <select id="selectInput" onchange="cargarArchivo(this.value)">
+        <option>Please select a dependent variable</option>
+        <option value= "quarto_tax_variable/regression_transparency_tasa_ir/regression_transparency_tasa_ir.html">Income tax rate  (%)</option>
+         <option value= "quarto_tax_variable/regression_transparency_en_aps/regression_transparency_en_aps.html">APS compliance (%)</option>
+ <option value= "quarto_tax_variable/regression_transparency_en_mid/regression_transparency_en_mid.html">MID compliance (%)</option>
+ <option value= "quarto_tax_variable/regression_transparency_pff_p/regression_transparency_pff_p.html">Tax haven participation (%)</option>
+ <option value= "quarto_tax_variable/regression_transparency_ext_p/regression_transparency_ext_p.html">Foreign participation (%)</option>
+ <option value= "quarto_tax_variable/regression_transparency_nac_p/regression_transparency_nac_p.html">Domestic participation (%)</option>
+ <option value= "quarto_tax_variable/regression_transparency_prominent/regression_transparency_prominent.html">Prominent participation in main group (%)</option>
+ <option value= "quarto_tax_variable/regression_transparency_inverse_prom/regression_transparency_inverse_prom.html">Inverse prominent part. in main group (%)</option>
+ <option value= "quarto_tax_variable/regression_transparency_prominent_0/regression_transparency_prominent_0.html">Average participation of the main group of company i in the years 2015-2017 ≅ 0</option>
+ <option value= "quarto_tax_variable/regression_transparency_prominent_50/regression_transparency_prominent_50.html">Average participation of the main group of company i in the years 2015-2017 >= 50%</option>
+ <option value= "quarto_tax_variable/regression_transparency_inv_promi_50/regression_transparency_inv_promi_50.html">The average participation of the minor group of company i in the years 2015-2017 in the minor group (minor group) >= 50%</option>
+ <option value= "quarto_tax_variable/regression_transparency_domestic_50/regression_transparency_domestic_50.html">The average domestic participation of company i in the years 2015-2017 >= 50%</option>
+ <option value= "quarto_tax_variable/regression_transparency_total_assets/regression_transparency_total_assets.html">Total Assets ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_tax_liability/regression_transparency_tax_liability.html">Tax liability  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_net_profits/regression_transparency_net_profits.html">Net profits  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_taxable_profits/regression_transparency_taxable_profits.html">Taxable profits  ($)</option>
+ 
+ <option value= "quarto_tax_variable/regression_transparency_level_assets_attr_inv/regression_transparency_level_assets_attr_inv.html">Level assets attributable to inverse main group  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_level_assets_attr_main/regression_transparency_level_assets_attr_main.html">Level assets attributable to main group  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_levels_assets_attr_haven/regression_transparency_levels_assets_attr_haven.html">Levels assets attributable to tax havens  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_levels_assets_attr_nonhaven/regression_transparency_levels_assets_attr_nonhaven.html">Levels assets attributable to non tax havens  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_levels_assets_attr_domestic/regression_transparency_levels_assets_attr_domestic.html">Level assets attributable domestic  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_mid_firm_total_salida_pff/regression_transparency_mid_firm_total_salida_pff.html">Total exits to tax haven (MID codes 1-7)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_mid_firm_total_salida_ext/regression_transparency_mid_firm_total_salida_ext.html">Total exits to other residencies (non tax haven, MID codes 1-7)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_mid_total_salida_pff/regression_transparency_mid_total_salida_pff.html">Total exits to tax haven (MID codes 1-9)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_mid_total_salida_ext/regression_transparency_mid_total_salida_ext.html">Total exits to other residencies (non tax haven, MID codes 1-9)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_mid_total_salida_all/regression_transparency_mid_total_salida_all.html">Total exits registered in MID Annex</option>
+ <option value= "quarto_tax_variable/regression_transparency_mid_firm_total_entrada_pff/regression_transparency_mid_firm_total_entrada_pff.html">Total entrances to tax haven (MID codes 1-7)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_mid_firm_total_entrada_ext/regression_transparency_mid_firm_total_entrada_ext.html">Total entrances to other residencies (non tax haven, MID codes 1-7)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_mid_total_entrada_pff/regression_transparency_mid_total_entrada_pff.html">Total entrances to tax haven (MID codes 1-9)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_mid_total_entrada_ext/regression_transparency_mid_total_entrada_ext.html">Total entrances to other residencies (non tax haven, MID codes 1-9)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_mid_total_entrada_all/regression_transparency_mid_total_entrada_all.html">Total entrances registered in MID Annex</option>
+ <option value= "quarto_tax_variable/regression_transparency_log_total_assets/regression_transparency_log_total_assets.html">Log(Total Assets)</option>
+ <option value= "quarto_tax_variable/regression_transparency_log_utility/regression_transparency_log_utility.html">Log(Profits)</option>
+ <option value= "quarto_tax_variable/regression_transparency_log_cit_liability/regression_transparency_log_cit_liability.html">Log(CIT liability)</option>
+ <option value= "quarto_tax_variable/regression_transparency_log_taxable_profits/regression_transparency_log_taxable_profits.html">Log(Taxable profits)</option>
+ <option value= "quarto_tax_variable/regression_transparency_log_assets_inv/regression_transparency_log_assets_inv.html">Log assets attributable to inverse main group</option>
+ <option value= "quarto_tax_variable/regression_transparency_log_assets_prominent/regression_transparency_log_assets_prominent.html">Log assets attributable to main group</option>
+ <option value= "quarto_tax_variable/regression_transparency_log_assets_attr_pff/regression_transparency_log_assets_attr_pff.html">Log assets attributable to tax havens (positive)</option>
+ <option value= "quarto_tax_variable/regression_transparency_log_assets_attr_ext/regression_transparency_log_assets_attr_ext.html">Log assets attributable to non tax havens (positive)</option>
+ <option value= "quarto_tax_variable/regression_transparency_log_assets_attr_dom/regression_transparency_log_assets_attr_dom.html">Log assets attributable domestic</option>
+ <option value= "quarto_tax_variable/regression_transparency_log_mid_firm_total_salida_pff/regression_transparency_log_mid_firm_total_salida_pff.html">Log exits to tax haven (MID codes 1-7)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_log_mid_firm_total_salida_ext/regression_transparency_log_mid_firm_total_salida_ext.html">Log exits to other residencies (non tax haven, MID codes 1-7)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_log_mid_total_salida_pff/regression_transparency_log_mid_total_salida_pff.html">Log exits to tax haven (MID codes 1-9)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_log_mid_total_salida_ext/regression_transparency_log_mid_total_salida_ext.html">Log exits to other residencies (non tax haven, MID codes 1-9)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_log_mid_total_salida_all/regression_transparency_log_mid_total_salida_all.html">Log exits registered in MID Annex</option>
+ <option value= "quarto_tax_variable/regression_transparency_log_mid_firm_total_entrada_pff/regression_transparency_log_mid_firm_total_entrada_pff.html">Log entrances to tax haven (MID codes 1-7)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_log_mid_firm_total_entrada_ext/regression_transparency_log_mid_firm_total_entrada_ext.html">Log entrances to other residencies (non tax haven, MID codes 1-7)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_log_mid_total_entrada_pff/regression_transparency_log_mid_total_entrada_pff.html">Log entrances to tax haven (MID codes 1-9)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_log_mid_total_entrada_ext/regression_transparency_log_mid_total_entrada_ext.html">Log entrances to other residencies (non tax haven, MID codes 1-9)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_log_mid_total_entrada_all/regression_transparency_log_mid_total_entrada_all.html">Log entrances registered in MID Annex</option>
+ <option value= "quarto_tax_variable/regression_transparency_bin_total_assets/regression_transparency_bin_total_assets.html">Positive dummy (Total Assets)</option>
+ <option value= "quarto_tax_variable/regression_transparency_bin_taxable_profits/regression_transparency_bin_taxable_profits.html">Positive dummy (Taxable profits)</option>
+ <option value= "quarto_tax_variable/regression_transparency_bin_level_assets_attr_inv/regression_transparency_bin_level_assets_attr_inv.html">Positive dummy assets attributable to inverse main group</option>
+ <option value= "quarto_tax_variable/regression_transparency_bin_level_assets_attr_main/regression_transparency_bin_level_assets_attr_main.html">Positive dummy assets attributable to main group</option>
+ <option value= "quarto_tax_variable/regression_transparency_bin_levels_assets_attr_haven/regression_transparency_bin_levels_assets_attr_haven.html">Positive dummy assets attributable to tax havens (positive)</option>
+ <option value= "quarto_tax_variable/regression_transparency_bin_levels_assets_attr_nonhaven/regression_transparency_bin_levels_assets_attr_nonhaven.html">Positive dummy assets attributable to non tax havens (positive)</option>
+ <option value= "quarto_tax_variable/regression_transparency_bin_levels_assets_attr_domestic/regression_transparency_bin_levels_assets_attr_domestic.html">Positive dummy assets attributable domestic</option>
+ <option value= "quarto_tax_variable/regression_transparency_bin_mid_firm_total_salida_pff/regression_transparency_bin_mid_firm_total_salida_pff.html">Positive dummy exits to tax haven (MID codes 1-7)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_bin_mid_firm_total_salida_ext/regression_transparency_bin_mid_firm_total_salida_ext.html">Positive dummy exits to other residencies (non tax haven, MID codes 1-7)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_bin_mid_total_salida_pff/regression_transparency_bin_mid_total_salida_pff.html">Positive dummy exits to tax haven (MID codes 1-9)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_bin_mid_total_salida_ext/regression_transparency_bin_mid_total_salida_ext.html">Positive dummy exits to other residencies (non tax haven, MID codes 1-9)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_bin_mid_total_salida_all/regression_transparency_bin_mid_total_salida_all.html">Positive dummy exits registered in MID Annex</option>
+ <option value= "quarto_tax_variable/regression_transparency_bin_mid_firm_total_entrada_pff/regression_transparency_bin_mid_firm_total_entrada_pff.html">Positive dummy entrances to tax haven (MID codes 1-7)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_bin_mid_firm_total_entrada_ext/regression_transparency_bin_mid_firm_total_entrada_ext.html">Positive dummy entrances to other residencies (non tax haven, MID codes 1-7)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_bin_mid_total_entrada_pff/regression_transparency_bin_mid_total_entrada_pff.html">Positive dummy entrances to tax haven (MID codes 1-9)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_bin_mid_total_entrada_ext/regression_transparency_bin_mid_total_entrada_ext.html">Positive dummy entrances to other residencies (non tax haven, MID codes 1-9)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_bin_mid_total_entrada_all/regression_transparency_bin_mid_total_entrada_all.html">Positive dummy entrances registered in MID Annex</option>
+ <option value= "quarto_tax_variable/regression_transparency_change_total_assets/regression_transparency_change_total_assets.html">Change from t-1 (Total Assets)</option>
+ <option value= "quarto_tax_variable/regression_transparency_change_net_profits/regression_transparency_change_net_profits.html">Change from t-1 (Profits)</option>
+ <option value= "quarto_tax_variable/regression_transparency_change_tax_liability/regression_transparency_change_tax_liability.html">Change from t-1 (CIT liability)</option>
+ <option value= "quarto_tax_variable/regression_transparency_change_taxable_profits/regression_transparency_change_taxable_profits.html">Change from t-1 (Taxable profits)</option>
+ <option value= "quarto_tax_variable/regression_transparency_change_level_assets_attr_inv/regression_transparency_change_level_assets_attr_inv.html">Change from t-1 assets attributable to inverse main group</option>
+ <option value= "quarto_tax_variable/regression_transparency_change_level_assets_attr_main/regression_transparency_change_level_assets_attr_main.html">Change from t-1 assets attributable to main group</option>
+ <option value= "quarto_tax_variable/regression_transparency_change_levels_assets_attr_haven/regression_transparency_change_levels_assets_attr_haven.html">Change from t-1 assets attributable to tax havens (positive)</option>
+ <option value= "quarto_tax_variable/regression_transparency_change_levels_assets_attr_nonhaven/regression_transparency_change_levels_assets_attr_nonhaven.html">Change from t-1 assets attributable to non tax havens (positive)</option>
+ <option value= "quarto_tax_variable/regression_transparency_change_levels_assets_attr_domestic/regression_transparency_change_levels_assets_attr_domestic.html">Change from t-1 assets attributable domestic</option>
+ <option value= "quarto_tax_variable/regression_transparency_change_mid_firm_total_salida_pff/regression_transparency_change_mid_firm_total_salida_pff.html">Change from t-1 exits to tax haven (MID codes 1-7)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_change_mid_firm_total_salida_ext/regression_transparency_change_mid_firm_total_salida_ext.html">Change from t-1 exits to other residencies (non tax haven, MID codes 1-7)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_change_mid_total_salida_pff/regression_transparency_change_mid_total_salida_pff.html">Change from t-1 exits to tax haven (MID codes 1-9)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_change_mid_total_salida_ext/regression_transparency_change_mid_total_salida_ext.html">Change from t-1 exits to other residencies (non tax haven, MID codes 1-9)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_change_mid_total_salida_all/regression_transparency_change_mid_total_salida_all.html">Change from t-1 exits registered in MID Annex</option>
+ <option value= "quarto_tax_variable/regression_transparency_change_mid_firm_total_entrada_pff/regression_transparency_change_mid_firm_total_entrada_pff.html">Change from t-1 entrances to tax haven (MID codes 1-7)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_change_mid_firm_total_entrada_ext/regression_transparency_change_mid_firm_total_entrada_ext.html">Change from t-1 entrances to other residencies (non tax haven, MID codes 1-7)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_change_mid_total_entrada_pff/regression_transparency_change_mid_total_entrada_pff.html">Change from t-1 entrances to tax haven (MID codes 1-9)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_change_mid_total_entrada_ext/regression_transparency_change_mid_total_entrada_ext.html">Change from t-1 entrances to other residencies (non tax haven, MID codes 1-9)  ($)</option>
+ <option value= "quarto_tax_variable/regression_transparency_change_mid_total_entrada_all/regression_transparency_change_mid_total_entrada_all.html">Change from t-1 entrances registered in MID Annex</option>
+ 
+    </select>
+
+    <div id="contenido"></div>
+
+    <script>
+        function cargarArchivo(archivo) {
+            var iframe = document.createElement('iframe');
+            iframe.setAttribute('src', archivo);
+            iframe.style.width = '100%';
+            iframe.style.height = '750px';
+            document.getElementById('contenido').innerHTML = '';
+            document.getElementById('contenido').appendChild(iframe);
+        }
+    </script>
+</body>
+</html>
+                
+            
